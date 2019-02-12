@@ -1,0 +1,98 @@
+/// <summary>
+/// Generates a maze
+/// </summary>
+/// <returns>Returns the generated maze gameobject</returns>
+public GameObject GenerateMaze()
+{
+    int rowTracker;
+    int columnTracker;
+    int indexTracker;
+    bool keepGoing;
+
+    _HasPlazedStart = false;
+
+    // Initialize start values
+    StartMazeMap();
+
+    Vector2 currentTileCoordinates = new Vector2(1, 1);
+
+    LatestMazeMap.map[((int)currentTileCoordinates.y * LatestMazeMap.mazeWidth) + (int)currentTileCoordinates.x] = MazeMap.TileState.visitedOnce;
+
+    // Randomize seed value if not using a set value
+    if (!useSeedValue)
+    {
+        seedValue = Random.Range(int.MinValue, int.MaxValue);
+    }
+    Random.InitState(seedValue);
+
+    keepGoing = true;         
+    do
+    {
+        keepGoing = GetNextTile(LatestMazeMap, ref currentTileCoordinates);
+    } while (keepGoing);
+
+    TheMaze = new GameObject(mazeName, typeof(Maze));
+
+    if (makePlazas && plazas.Length > 0)
+    {
+        for (int counter = 0; counter < numberOfPlazas; counter++)
+        {
+            bool validAvailableChoice = false;
+            foreach (PlazaPrefab plaza in plazas)
+            {
+                if (plaza)
+                {
+                    if (!plaza.fixedPosition || !plaza.placedOnce)
+                    {
+                        validAvailableChoice = true;
+                        break;
+                    }
+                }
+            }
+            if (validAvailableChoice)
+            {
+                PlazaPrefab chosenPlaza;
+
+                if (counter == 0)
+                    chosenPlaza = plazas[0];
+                else
+                    chosenPlaza = plazas[Random.Range(1, plazas.Length)];
+
+                keepGoing = true;
+                int timesTested = 0;
+                do
+                {
+                    keepGoing = SetPlaza(LatestMazeMap, chosenPlaza, TheMaze.transform, mazeLength, mazeWidth, mazeDimension);
+                    timesTested++;
+                } while (keepGoing && timesTested < plazaPlacementAttempts);
+            }
+        }
+        foreach (PlazaPrefab plaza in plazas)
+        {
+            plaza.placedOnce = false;
+        }
+    }
+
+    if (makeFloorExit)
+    {
+        SetFinish(LatestMazeMap, exitType);
+    }
+    
+    rowTracker = 0;
+    columnTracker = 0;
+    keepGoing = true;
+    MazeNode[,] nodes = new MazeNode[mazeWidth, mazeLength];
+    do
+    {
+        keepGoing = InstantiateMaze(LatestMazeMap, TheMaze.transform, wallPieces, cornerWallPieces, endWallPieces, floorPieces, exitPieces, mazeTileWidthAndLength, defaultFloorThickness, -1, ref rowTracker, ref columnTracker, nodes);
+    } while (keepGoing);
+
+    latestMazeNodes = nodes;
+    ResetMazeNodes();
+
+    TheMaze.GetComponent<Maze>().mazeMap = LatestMazeMap;
+
+    TheMaze.transform.parent = this.transform;
+
+    return TheMaze;
+}
